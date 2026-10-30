@@ -1,11 +1,11 @@
 import { Room, Client, CloseCode } from "colyseus";
 import { WorldState, PlayerState } from "./schema/WorldState.js";
-import { DISTANCE_MAX, GUEST_ID_PREFIX, LEADERBOARD_EVERY_MS, NAME_MAX, PFP_MAX_LEN, RECONNECT_SECONDS, ROOM_MAX_CLIENTS } from "../constants.js";
+import { DISTANCE_MAX, FX_PER_SECOND, GUEST_ID_PREFIX, LEADERBOARD_EVERY_MS, NAME_MAX, PFP_MAX_LEN, RECONNECT_SECONDS, ROOM_MAX_CLIENTS } from "../constants.js";
 import { getPlayers, type PlayerDoc } from "../db.js";
 import { sanitizeProgress } from "../sanitize.js";
 import { accrue, rollWedge, spinStateFrom, type SpinState } from "../spin.js";
 import { claimDaily, dailyFields, dailyView, readDaily, rollDaily, type DailyState } from "../daily.js";
-import { applyAvatar, applyLoadout, applyPose } from "../presence.js";
+import { applyAvatar, applyLoadout, applyPose, cleanFx } from "../presence.js";
 import { ranksOf, topBoards } from "../leaderboard.js";
 
 function sanitizeName(raw: unknown): string {
@@ -30,6 +30,9 @@ export class WorldRoom extends Room<{ state: WorldState }> {
   // sessionId -> user id (Bloxity id). Deliberately NOT part of WorldState: it only gates this
   // room's own Mongo reads/writes. Guests have no entry.
   userIds = new Map<string, string>();
+
+  // sessionId -> { window start, `fx` messages in it } for the per-client rate limit.
+  private fxRate = new Map<string, { at: number; n: number }>();
 
   // sessionIds that already got a progress/noProgress answer for their current identity.
   private identified = new Set<string>();
@@ -121,6 +124,16 @@ export class WorldRoom extends Room<{ state: WorldState }> {
       const p = this.state.players.get(client.sessionId);
       if (p) applyPose(p, msg);
     },
+    // A throw's visible moments (presence.ts cleanFx), relayed to everyone else with the sender's
+    // session id so they can draw it. Rate-limited per client.
+    fx: (client: Client, msg: unknown) => {
+      const now = Date.now();
+      const slot = this.fxRate.get(client.sessionId);
+      if (!slot || now - slot.at >= 1000) this.fxRate.set(client.sessionId, { at: now, n: 1 });
+      else if (++slot.n > FX_PER_SECOND) return;
+      const fx = cleanFx(msg);
+      if (fx) this.broadcast("fx", { ...fx, id: client.sessionId }, { except: client });
+    },
     loadout: (client: Client, msg: unknown) => {
       const p = this.state.players.get(client.sessionId);
       if (p) applyLoadout(p, msg);
@@ -208,6 +221,7 @@ export class WorldRoom extends Room<{ state: WorldState }> {
     this.loaded.delete(sessionId);
     this.dailies.delete(sessionId);
     this.spinStates.delete(sessionId);
+    this.fxRate.delete(sessionId);
   }
 
   private spinView(s: SpinState, now: number) {

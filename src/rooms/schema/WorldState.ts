@@ -10,16 +10,15 @@ export const PlayerState = schema(
     racing: t.boolean().default(false), // in a race right now (`race` message)
     distance: t.float64().default(0), // this race's distance so far, studs
     // Presence (presence.ts, `pose` / `loadout` / `setAvatar`): what the others draw in the world.
-    x: t.float64().default(0), // feet position in track coordinates (z minus the race scroll)
+    x: t.float64().default(0), // feet position in world metres
     y: t.float64().default(0),
     z: t.float64().default(0),
     yaw: t.float32().default(0), // heading, rad (PI = facing the gate)
     speed: t.float32().default(0), // m/s, for flames and dead reckoning
-    boat: t.string().default(""), // equipped catalog ids (client config.js), "" = none / default
-    engine: t.string().default(""),
-    trail: t.string().default(""),
-    partner: t.string().default(""),
-    pets: t.string().default(""), // equipped pets "kind:tier,kind:tier"
+    air: t.boolean().default(false), // off the ground (jump / fall), for the remote jump animation
+    tnt: t.string().default(""), // equipped TNT id (client config.js TNTS), "" = default
+    trail: t.string().default(""), // equipped trail id, "" = none
+    pets: t.string().default(""), // equipped pets "kind:variant,kind:variant"
     world: t.string().default(""), // the world the player is in (client WORLDS id), "" = the start world
     avatar: t.string().default(""), // Bloxity look JSON { equipped, proportions, skin }, "" = default
   },

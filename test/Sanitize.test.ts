@@ -7,52 +7,51 @@ describe("sanitizeProgress", () => {
   it("rejects non-objects and bounds numbers", () => {
     assert.strictEqual(sanitizeProgress(null), null);
     assert.strictEqual(sanitizeProgress([1]), null);
-    const out = sanitizeProgress({ trophies: 1e40, gems: -5, energy: NaN, rebirths: 3.7, autoRebirth: "yes", hack: "x" })!;
-    assert.strictEqual(out.trophies, CURRENCY_MAX);
-    assert.strictEqual(out.gems, 0);
-    assert.strictEqual(out.energy, undefined);
+    const out = sanitizeProgress({ wins: 1e40, skill: -5, bestDistance: NaN, rebirths: 3.7, throws: "x", hack: "x" })!;
+    assert.strictEqual(out.wins, CURRENCY_MAX);
+    assert.strictEqual(out.skill, 0);
+    assert.strictEqual(out.bestDistance, undefined);
     assert.strictEqual(out.rebirths, 3);
-    assert.strictEqual(out.autoRebirth, undefined);
+    assert.strictEqual(out.throws, undefined);
     assert.ok(!("hack" in out));
   });
 
-  it("keeps well-formed catalog ids and only equips an owned one", () => {
-    const out = sanitizeProgress({ boats: ["raft", "canoe", "canoe", "Bad Id!", 7], boat: "canoe", engines: ["basic", "ladder-3"], engine: "ladder-9" })!;
-    assert.deepStrictEqual(out.boats, ["raft", "canoe"]);
-    assert.strictEqual(out.boat, "canoe");
-    assert.deepStrictEqual(out.engines, ["basic", "ladder-3"]);
-    assert.strictEqual(out.engine, undefined);
-    assert.strictEqual(sanitizeProgress({ partner: "" })!.partner, "");
-    assert.strictEqual(sanitizeProgress({ trail: "waterRipple" })!.trail, "waterRipple");
+  it("keeps well-formed ids and only equips an owned one", () => {
+    const out = sanitizeProgress({ tnts: ["stick", "bomb", "bomb", "Bad Id!", 7], tnt: "bomb", trails: ["white"], trail: "red" })!;
+    assert.deepStrictEqual(out.tnts, ["stick", "bomb"]);
+    assert.strictEqual(out.tnt, "bomb");
+    assert.deepStrictEqual(out.trails, ["white"]);
+    assert.strictEqual(out.trail, undefined, "an unowned trail is not equipped");
+    assert.strictEqual(sanitizeProgress({ trail: null })!.trail, "");
+    assert.strictEqual(sanitizeProgress({ tnt: "keg" })!.tnt, "keg", "without the list only the shape is checked");
   });
 
   it("keeps well-formed pets and caps the equipped ones at the slots", () => {
     const out = sanitizeProgress({
       petSlots: 2,
       pets: [
-        { kind: "dog", tier: 0, equipped: true, locked: false },
-        { kind: "cat", tier: 1.5, equipped: true },
-        { kind: "Bad Id!", tier: 0 },
-        { kind: "fox", tier: 2, equipped: true, locked: true },
-        { kind: "bear", tier: 0, equipped: true },
+        { id: 1, kind: "foxy", variant: "normal", equipped: true, locked: false },
+        { id: 2, kind: "panda", variant: "golden", equipped: true },
+        { id: 3, kind: "Bad Id!", variant: "normal" },
+        { id: 4.5, kind: "lion", variant: "normal" },
+        { id: 5, kind: "lion", variant: "diamond", equipped: true, locked: true },
         "x",
       ],
+      petsSeen: ["foxy:normal", "foxy:normal", "bad", "panda:golden"],
     })!;
-    assert.deepStrictEqual(sanitizeProgress({ eggsSeen: ["dog", "dog", "Bad Id!", "dragon"] })!.eggsSeen, ["dog", "dragon"]);
-    const worlds = sanitizeProgress({ world: "city", worldsUnlocked: ["city", "city", "Bad Id!"] })!;
-    assert.deepStrictEqual([worlds.world, worlds.worldsUnlocked], ["city", ["city"]]);
-    assert.strictEqual(sanitizeProgress({ world: "Bad World!" })!.world, undefined);
     assert.deepStrictEqual(out.pets, [
-      { kind: "dog", tier: 0, equipped: true, locked: false },
-      { kind: "fox", tier: 2, equipped: true, locked: true },
-      { kind: "bear", tier: 0, equipped: false, locked: false },
+      { id: 1, kind: "foxy", variant: "normal", equipped: true, locked: false },
+      { id: 2, kind: "panda", variant: "golden", equipped: true, locked: false },
+      { id: 5, kind: "lion", variant: "diamond", equipped: false, locked: true },
     ]);
+    assert.deepStrictEqual(out.petsSeen, ["foxy:normal", "panda:golden"]);
   });
 
-  it("bounds the Online Gifts state", () => {
-    const out = sanitizeProgress({ giftTime: -4, giftsClaimed: [0, 0, 3, 99, "1"], potions: { golden: 2.9, "bad id": 1, doubleWin: "x" } })!;
-    assert.strictEqual(out.giftTime, 0);
-    assert.deepStrictEqual(out.giftsClaimed, [0, 3]);
-    assert.deepStrictEqual(out.potions, { golden: 2 });
+  it("bounds eggs, potions and timers", () => {
+    const out = sanitizeProgress({ eggs: { common: 2.9, "bad id": 1 }, potions: { skill: 3 }, boostUntil: { skill: 1e18 }, daily: { streak: 2, last: 5 } })!;
+    assert.deepStrictEqual(out.eggs, { common: 2 });
+    assert.deepStrictEqual(out.potions, { skill: 3 });
+    assert.ok(out.boostUntil!.skill < Date.now() + 31 * 24 * 3600 * 1000);
+    assert.deepStrictEqual(out.daily, { streak: 2, last: 5 });
   });
 });

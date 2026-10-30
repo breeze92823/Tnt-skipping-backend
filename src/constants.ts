@@ -11,6 +11,10 @@ export const PFP_MAX_LEN = 512;
 export const AVATAR_MAX_LEN = 3000;
 export const PRESENCE_PETS_MAX = 8;
 export const POSE_BOUNDS = { xy: 5000, z: 1e8, speed: 2000 };
+// Throw effects relayed to the other players (`fx`): the most per second one client may send, and the
+// bounds of the lane position / zone / TNT tier they carry.
+export const FX_PER_SECOND = 40;
+export const FX_TYPES = ["throw", "fly", "skip", "boom", "end"] as const;
 
 // Colyseus drops the whole connection for a WebSocket message above this (default 4 KB).
 export const MAX_PAYLOAD_BYTES = 128 * 1024;
@@ -22,6 +26,8 @@ export const RECONNECT_SECONDS = 20;
 // ceilings, not game rules: the dearest engine costs ~3.6e28 Wins (client ENGINE gems).
 export const CURRENCY_MAX = 1e33; // trophies (Wins), gems, lightning (energy)
 export const REBIRTHS_MAX = 1e9;
+export const THROWS_MAX = 1e12;
+export const BOOST_MAX_MS = 30 * 24 * 3600 * 1000; // a potion timer can run at most this far ahead
 export const DISTANCE_MAX = 1e15; // personal best race distance, studs
 export const PLAY_SECONDS_MAX = 31_536_000; // ~1 year
 
@@ -57,7 +63,8 @@ export const SPIN_WEDGES = [
 
 // Leaderboards (leaderboard.ts; client plaza.js boards): the saved doc fields ranked (Rebirth,
 // Wins, Power, Playtime), rows per board and how often the lists are re-read and re-sent.
-export const LEADERBOARD_STATS = ["rebirths", "trophies", "energy", "playtime"] as const;
+// Boards on the lobby stand: Wins, Top Time Played, Top Robux Spent (no purchases yet, stays empty), Skill.
+export const LEADERBOARD_STATS = ["wins", "playtime", "bestDistance", "skill"] as const;
 export type LeaderboardStat = (typeof LEADERBOARD_STATS)[number];
 export const LEADERBOARD_SIZE = 10;
 export const LEADERBOARD_EVERY_MS = 60 * 1000;

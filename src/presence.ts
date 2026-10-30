@@ -1,4 +1,4 @@
-import { AVATAR_MAX_LEN, ID_PATTERN, POSE_BOUNDS, PRESENCE_PETS_MAX, PET_TIERS_MAX } from "./constants.js";
+import { AVATAR_MAX_LEN, ID_PATTERN, POSE_BOUNDS, PRESENCE_PETS_MAX, FX_TYPES } from "./constants.js";
 import type { PlayerState } from "./rooms/schema/WorldState.js";
 
 // Presence: what the other clients need to draw a player in the world (client remotePlayers.js).
@@ -9,8 +9,8 @@ const finite = (v: unknown): v is number => typeof v === "number" && Number.isFi
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 const isId = (v: unknown): v is string => typeof v === "string" && ID_PATTERN.test(v);
 
-// `pose` { x, y, z, yaw, speed }: the boat's feet position in TRACK coordinates (z minus the
-// sender's race scroll, so racers line up in everyone's lane), heading (rad) and speed (m/s).
+// `pose` { x, y, z, yaw, speed, air }: the feet position in world metres, heading (rad), ground
+// speed (m/s) and whether the player is airborne.
 export function applyPose(p: PlayerState, msg: unknown): void {
   if (!msg || typeof msg !== "object") return;
   const m = msg as Record<string, unknown>;
@@ -20,14 +20,15 @@ export function applyPose(p: PlayerState, msg: unknown): void {
   if (finite(m.z)) p.z = clamp(m.z, -b.z, b.xy);
   if (finite(m.yaw)) p.yaw = Math.atan2(Math.sin(m.yaw), Math.cos(m.yaw));
   if (finite(m.speed)) p.speed = clamp(m.speed, 0, b.speed);
+  if (typeof m.air === "boolean") p.air = m.air;
 }
 
-// `loadout` { boat, engine, trail, partner, pets: [{ kind, tier }], world }: equipped catalog ids
-// ("" = none) and the world the player is in (clients only draw players in their own world). Pets travel as "kind:tier" joined by commas, capped at PRESENCE_PETS_MAX.
+// `loadout` { tnt, trail, pets: [{ kind, variant }], world }: equipped catalog ids ("" = none) and
+// the world the player is in. Pets travel as "kind:variant" joined by commas, capped at PRESENCE_PETS_MAX.
 export function applyLoadout(p: PlayerState, msg: unknown): void {
   if (!msg || typeof msg !== "object") return;
   const m = msg as Record<string, unknown>;
-  for (const key of ["boat", "engine", "trail", "partner", "world"] as const) {
+  for (const key of ["tnt", "trail", "world"] as const) {
     const v = m[key];
     if (v === "" || isId(v)) p[key] = v as string;
   }
@@ -36,11 +37,30 @@ export function applyLoadout(p: PlayerState, msg: unknown): void {
     for (const pet of m.pets) {
       if (pets.length >= PRESENCE_PETS_MAX) break;
       const k = (pet as { kind?: unknown })?.kind;
-      const t = (pet as { tier?: unknown })?.tier;
-      if (isId(k) && Number.isInteger(t) && (t as number) >= 0 && (t as number) < PET_TIERS_MAX) pets.push(`${k}:${t}`);
+      const v = (pet as { variant?: unknown })?.variant;
+      if (isId(k) && isId(v)) pets.push(`${k}:${v}`);
     }
     p.pets = pets.join(",");
   }
+}
+
+// `fx` { type, ... }: a throw's visible moments (the TNT in flight, a skip, the blast), relayed as
+// sent to everyone else in the room, only bounded here. Returns the cleaned message or null.
+export function cleanFx(msg: unknown): Record<string, unknown> | null {
+  if (!msg || typeof msg !== "object") return null;
+  const m = msg as Record<string, unknown>;
+  if (!(FX_TYPES as readonly unknown[]).includes(m.type)) return null;
+  const out: Record<string, unknown> = { type: m.type };
+  const b = POSE_BOUNDS;
+  for (const key of ["x", "y", "z", "vz", "spin", "k"] as const) {
+    if (finite(m[key])) out[key] = clamp(m[key] as number, -b.z, b.z);
+  }
+  for (const key of ["zone", "tier"] as const) {
+    if (Number.isInteger(m[key])) out[key] = clamp(m[key] as number, 0, 64);
+  }
+  if (isId(m.tnt)) out.tnt = m.tnt;
+  if (isId(m.trail)) out.trail = m.trail;
+  return out;
 }
 
 // `setAvatar` { avatar }: the Bloxity look as an opaque JSON string ("" = default), length-capped.
