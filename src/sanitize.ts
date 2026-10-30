@@ -88,6 +88,11 @@ export function sanitizeProgress(raw: unknown): Partial<PlayerDoc> | null {
   if (raw.trail === "" || raw.trail === null) out.trail = "";
   else if (isId(raw.trail) && (!out.trails || out.trails.includes(raw.trail))) out.trail = raw.trail;
 
+  // Worlds: the unlocked ids (kept through rebirths) and the one the player is in, "" = the start world.
+  if (raw.worlds !== undefined) out.worlds = sanitizeIds(raw.worlds);
+  if (raw.world === "") out.world = "";
+  else if (isId(raw.world) && (!out.worlds || out.worlds.includes(raw.world))) out.world = raw.world;
+
   if (finite(raw.petSlots)) out.petSlots = clampInt(raw.petSlots, PET_SLOTS_MAX, 1);
   if (raw.pets !== undefined) out.pets = sanitizePets(raw.pets, out.petSlots ?? PET_SLOTS_MAX);
   if (finite(raw.nextPet)) out.nextPet = clampInt(raw.nextPet, 1e9, 1);

@@ -31,6 +31,8 @@ export interface PlayerDoc {
   potions?: Record<string, number>;
   boostUntil?: Record<string, number>; // potion id -> epoch ms
   daily?: { streak: number; last: number };
+  worlds?: string[]; // unlocked worlds (client WORLDS ids)
+  world?: string; // the world the player is in, "" = the start world
   lastSeen?: number;
   // Spin wheel (spin.ts): written only by the server's `spin` handler, never by saveProgress.
   spins?: number;

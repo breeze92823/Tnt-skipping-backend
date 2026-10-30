@@ -16,6 +16,14 @@ describe("sanitizeProgress", () => {
     assert.ok(!("hack" in out));
   });
 
+  it("keeps unlocked worlds and only enters an unlocked one", () => {
+    const out = sanitizeProgress({ worlds: ["pirate", "pirate", "Bad Id!"], world: "pirate" })!;
+    assert.deepStrictEqual(out.worlds, ["pirate"]);
+    assert.strictEqual(out.world, "pirate");
+    assert.strictEqual(sanitizeProgress({ worlds: [], world: "pirate" })!.world, undefined);
+    assert.strictEqual(sanitizeProgress({ worlds: ["pirate"], world: "" })!.world, "");
+  });
+
   it("keeps well-formed ids and only equips an owned one", () => {
     const out = sanitizeProgress({ tnts: ["stick", "bomb", "bomb", "Bad Id!", 7], tnt: "bomb", trails: ["white"], trail: "red" })!;
     assert.deepStrictEqual(out.tnts, ["stick", "bomb"]);
